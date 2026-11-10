@@ -11,7 +11,7 @@ export function Studio({ signedIn, credits, plan }: Props) {
   const [ratio, setRatio] = useState("16:9");
   const [seconds, setSeconds] = useState(5);
   const [style, setStyle] = useState("Cinematic");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
@@ -29,13 +29,25 @@ export function Studio({ signedIn, credits, plan }: Props) {
       setMessage("Write a more detailed prompt (at least 12 characters).");
       return;
     }
-    if (mode === "image") {
-      setMessage("Image-to-video upload is prepared for the next integration step; text-to-video is enabled in this build.");
+    if (mode === "image" && !imageFile) {
+      setMessage("Choose a JPG, PNG, or WebP image first.");
       return;
     }
 
     setBusy(true);
     try {
+      let uploadedImageUrl: string | undefined;
+      if (mode === "image" && imageFile) {
+        setMessage("Uploading your reference image…");
+        const form = new FormData();
+        form.append("file", imageFile);
+        const upload = await fetch("/api/uploads", { method: "POST", body: form });
+        const uploadData = await upload.json();
+        if (!upload.ok) throw new Error(uploadData.error || "Image upload failed.");
+        uploadedImageUrl = uploadData.url;
+      }
+
+      setMessage("Submitting your video…");
       const response = await fetch("/api/generations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,7 +55,8 @@ export function Studio({ signedIn, credits, plan }: Props) {
           prompt: `${style} style. ${prompt}`,
           model: tier,
           aspectRatio: ratio,
-          duration: seconds
+          duration: seconds,
+          imageUrl: uploadedImageUrl
         })
       });
       const data = await response.json();
@@ -109,12 +122,16 @@ export function Studio({ signedIn, credits, plan }: Props) {
         />
 
         {mode === "image" && (
-          <input
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="Reference image URL (image-to-video adapter required)"
-            className="w-full mt-3 rounded-xl bg-[#090e1b] border border-white/10 p-3"
-          />
+          <div className="mt-3 rounded-xl border border-white/10 bg-[#090e1b] p-4">
+            <label className="text-sm font-medium">Upload reference image (JPG, PNG, WebP · max 10 MB)</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+              className="block w-full mt-3 text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-600 file:px-3 file:py-2 file:text-white"
+            />
+            {imageFile && <p className="mt-2 text-xs text-emerald-300">{imageFile.name} · {(imageFile.size / 1024 / 1024).toFixed(1)} MB</p>}
+          </div>
         )}
 
         <div className="grid sm:grid-cols-2 gap-4 mt-5">
