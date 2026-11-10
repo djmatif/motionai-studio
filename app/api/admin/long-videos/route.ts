@@ -15,6 +15,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const prompt = String(body.prompt ?? "").trim();
   const aspectRatio = String(body.aspectRatio ?? "16:9");
+  const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl : undefined;
+  if (imageUrl && (!imageUrl.startsWith("https://") || !/\.fal\.media\//i.test(imageUrl))) return NextResponse.json({ error: "Upload your reference image again before generating." }, { status: 400 });
   if (prompt.length < 12 || prompt.length > 1800) return NextResponse.json({ error: "Prompt must be between 12 and 1,800 characters." }, { status: 400 });
   if (!["16:9", "9:16", "1:1"].includes(aspectRatio)) return NextResponse.json({ error: "Unsupported aspect ratio." }, { status: 400 });
 
@@ -31,7 +33,8 @@ export async function POST(request: Request) {
          index === 3 ? "Create the concluding scene and resolve the action." :
          "Continue naturally from the preceding scene, maintaining the same characters, wardrobe, setting, lighting and visual style.");
       const submitted = await submitGenerationToFal({
-        prompt: segmentPrompt, modelKey: CLIP_MODEL, aspectRatio, duration: CLIP_DURATION
+        prompt: segmentPrompt, modelKey: CLIP_MODEL, aspectRatio, duration: CLIP_DURATION,
+        ...(index === 0 && imageUrl ? { imageUrl } : {})
       });
       requests.push(submitted.requestId);
     }
