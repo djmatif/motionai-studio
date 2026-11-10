@@ -36,7 +36,7 @@ export async function GET(
     const shouldPoll = Boolean(providerRequestId) && !["completed", "failed"].includes(row.status);
 
     if (shouldPoll && process.env.FAL_KEY) {
-      const poll = await pollFalStatus(providerRequestId);
+      const poll = await pollFalStatus(String(row.provider_model_id ?? ""), providerRequestId);
 
       if (poll) {
         const nextStatus = poll.status === "completed" ? "completed" : poll.status === "failed" ? "failed" : row.status;
