@@ -8,18 +8,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Stripe webhook is not configured." }, { status: 500 });
   }
 
-  const sig = request.headers.get("stripe-signature");
-  const body = await request.text();
+  const signature = request.headers.get("stripe-signature");
+  if (!signature) return NextResponse.json({ error: "Missing Stripe signature." }, { status: 400 });
 
+  const body = await request.text();
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig || "",
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (error) {
+    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch {
     return NextResponse.json({ error: "Invalid Stripe signature." }, { status: 400 });
   }
 
@@ -32,27 +29,37 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.client_reference_id || session.metadata?.userId;
-        const plan = (session.metadata?.plan as string) || "pro";
+        const userId = session.client_reference_id || session.metadata?.user_id;
+        const plan = session.metadata?.plan === "studio" ? "studio" : "pro";
 
-        if (userId) {
-          await adminClient
-            .from("profiles")
-            .update({
-              plan,
-              stripe_subscription_id: session.subscription ? String(session.subscription) : null
-            })
-            .eq("id", userId);
+        if (userId && session.mode === "subscription") {
+          const { error } = await adminClient.from("profiles").update({
+            plan,
+            stripe_subscription_id: typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription?.id ?? null
+          }).eq("id", userId);
+          if (error) throw error;
         }
         break;
       }
 
+      case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.userId;
-
+        const userId = subscription.metadata?.user_id;
         if (userId) {
-          await adminClient.from("profiles").update({ plan: "free", stripe_subscription_id: null }).eq("id", userId);
+          const isActive = event.type !== "customer.subscription.deleted"
+            && (subscription.status === "active" || subscription.status === "trialing");
+          const priceIds = subscription.items.data.map(item => item.price.id);
+          const plan = isActive
+            ? (priceIds.includes(process.env.STRIPE_PRICE_STUDIO_MONTHLY || "") ? "studio" : "pro")
+            : "free";
+          const { error } = await adminClient.from("profiles").update({
+            plan,
+            stripe_subscription_id: isActive ? subscription.id : null
+          }).eq("id", userId);
+          if (error) throw error;
         }
         break;
       }
@@ -60,7 +67,7 @@ export async function POST(request: Request) {
       default:
         break;
     }
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Unable to process webhook payload." }, { status: 500 });
   }
 
