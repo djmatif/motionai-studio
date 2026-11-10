@@ -62,10 +62,10 @@ export async function submitGenerationToFal({
   return { requestId, modelId: model.id, raw: response };
 }
 
-export async function pollFalStatus(requestId: string) {
+export async function pollFalStatus(modelId: string, requestId: string) {
   if (!requestId) return null;
 
-  const result = await fal.queue.status(requestId);
+  const result = await fal.queue.status(modelId, requestId);
   const normalizedStatus = String((result as any)?.status ?? (result as any)?.state ?? "queued").toLowerCase();
   const videoUrl = extractVideoUrl(result);
 
