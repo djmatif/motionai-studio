@@ -39,7 +39,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       throw new Error("The long-video job does not contain all four scene request IDs.");
     }
 
-    const clips = await Promise.all(requestIds.map((requestId) => pollFalStatus(job.clip_model_id, requestId)));
+    const modelIds = Array.isArray(job.clip_model_ids) ? job.clip_model_ids as string[] : [];
+    const clips = await Promise.all(requestIds.map((requestId, index) =>
+      pollFalStatus(modelIds[index] ?? job.clip_model_id, requestId)
+    ));
     const failed = clips.find((clip) => clip && ["failed", "cancelled", "canceled"].includes(clip.status));
     if (failed) throw new Error("One of the four 15-second scenes failed to render.");
 
