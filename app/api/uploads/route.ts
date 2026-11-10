@@ -4,11 +4,17 @@ import { fal } from "@fal-ai/client";
 
 export const runtime = "nodejs";
 
+function safeProviderMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "Unknown provider error");
+  // Keep diagnostics useful without returning credentials or large provider payloads.
+  return message.replace(/Bearer\s+\S+/gi, "Bearer [redacted]").replace(/(key|token|secret)=\S+/gi, "$1=[redacted]").slice(0, 400);
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Sign in before uploading." }, { status: 401 });
-  if (!process.env.FAL_KEY) return NextResponse.json({ error: "Video provider is not configured yet." }, { status: 503 });
+  if (!process.env.FAL_KEY) return NextResponse.json({ error: "Video provider is not configured yet. Add FAL_KEY to the Vercel Production environment and redeploy." }, { status: 503 });
 
   const form = await request.formData();
   const file = form.get("file");
@@ -21,7 +27,12 @@ export async function POST(request: Request) {
     fal.config({ credentials: process.env.FAL_KEY });
     const url = await fal.storage.upload(file);
     return NextResponse.json({ url });
-  } catch {
-    return NextResponse.json({ error: "Image upload failed. Please try another image." }, { status: 502 });
+  } catch (error) {
+    const providerError = safeProviderMessage(error);
+    console.error("[image-upload] fal.ai storage upload failed:", providerError);
+    return NextResponse.json({
+      error: "fal.ai image upload failed: " + providerError,
+      code: "FAL_STORAGE_UPLOAD_FAILED"
+    }, { status: 502 });
   }
 }
