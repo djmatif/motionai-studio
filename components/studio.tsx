@@ -52,7 +52,7 @@ export function Studio({ signedIn, credits, plan, isAdmin = false }: Props) {
         const response = await fetch("/api/admin/long-videos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: style + " style. " + prompt, aspectRatio: ratio })
+          body: JSON.stringify({ prompt: style + " style. " + prompt, aspectRatio: ratio, imageUrl: uploadedImageUrl })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not start the long video.");
