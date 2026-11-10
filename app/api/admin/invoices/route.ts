@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       auto_advance: true,
       ...(process.env.STRIPE_TAX_ENABLED === "true" ? { automatic_tax: { enabled: true } } : {})
     });
+    if (!invoice.id) throw new Error("Stripe did not return an invoice ID.");
     const sent = await stripe.invoices.sendInvoice(invoice.id);
     return NextResponse.json({
       invoiceId: sent.id,
