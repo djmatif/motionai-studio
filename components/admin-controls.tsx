@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 
 type UserRow = { id: string; email: string; plan: string; credits: number; created_at: string };
 type GenerationRow = { id: string; user_email: string | null; prompt: string; model: string; status: string; duration_seconds: number | null; video_url: string | null; created_at: string };
+type LongVideoRow = { id: string; prompt: string; status: string; total_duration_seconds: number; video_url: string | null; error_message: string | null; created_at: string };
 
-export function AdminControls({ users, generations }: { users: UserRow[]; generations: GenerationRow[] }) {
+export function AdminControls({ users, generations, longVideos }: { users: UserRow[]; generations: GenerationRow[]; longVideos: LongVideoRow[] }) {
   const [rows, setRows] = useState(users);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
@@ -55,6 +56,18 @@ export function AdminControls({ users, generations }: { users: UserRow[]; genera
                 </tr>
               ))}
               {!rows.length && <tr><td colSpan={4} className="p-4 text-slate-400">No registered accounts yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="mt-10">
+        <h2 className="text-xl font-bold mb-4">Administrator long videos</h2>
+        <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <table className="w-full text-sm">
+            <thead className="bg-white/[.05] text-slate-300"><tr><th className="text-left p-3">Prompt</th><th className="text-left p-3">Duration</th><th className="text-left p-3">Status</th><th className="text-left p-3">Video / error</th></tr></thead>
+            <tbody>
+              {longVideos.map((v) => <tr key={v.id} className="border-t border-white/10"><td className="p-3 max-w-sm truncate">{v.prompt}</td><td className="p-3">{v.total_duration_seconds}s</td><td className="p-3">{v.status}</td><td className="p-3">{v.video_url ? <a className="text-violet-300 underline" href={v.video_url} target="_blank" rel="noreferrer">Open MP4</a> : v.error_message ?? "Processing"}</td></tr>)}
+              {!longVideos.length && <tr><td colSpan={4} className="p-4 text-slate-400">No administrator long videos yet.</td></tr>}
             </tbody>
           </table>
         </div>
