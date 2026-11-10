@@ -9,68 +9,72 @@ export async function GET(
 ) {
   const { id } = await context.params;
   const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const adminClient = createAdminClient();
-  let row: any = null;
-
-  if (adminClient) {
-    const { data } = await adminClient
-      .from("generations")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    row = data;
+  if (!adminClient) {
+    return NextResponse.json({ error: "Generation database is not configured." }, { status: 503 });
   }
 
-  if (row) {
-    const providerRequestId = String(row.provider_request_id ?? "");
-    const shouldPoll = Boolean(providerRequestId) && !["completed", "failed"].includes(row.status);
+  const { data: row, error: readError } = await adminClient
+    .from("generations")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-    if (shouldPoll && process.env.FAL_KEY) {
-      const poll = await pollFalStatus(String(row.provider_model_id ?? ""), providerRequestId);
+  if (readError) {
+    return NextResponse.json({ error: "Unable to read generation status." }, { status: 500 });
+  }
+  if (!row) {
+    return NextResponse.json({ error: "Generation not found." }, { status: 404 });
+  }
 
-      if (poll) {
-        const nextStatus = poll.status === "completed" ? "completed" : poll.status === "failed" ? "failed" : row.status;
+  const providerRequestId = String(row.provider_request_id ?? "");
+  const shouldPoll = Boolean(providerRequestId) && !["completed", "failed"].includes(row.status);
 
-        const updates: Record<string, any> = { status: nextStatus };
-        if (poll.videoUrl) updates.video_url = poll.videoUrl;
-        if (nextStatus === "completed" && !row.completed_at) updates.completed_at = new Date();
-        if (nextStatus === "failed") updates.error_message = "Generation failed at provider.";
+  if (shouldPoll && process.env.FAL_KEY) {
+    const poll = await pollFalStatus(String(row.provider_model_id ?? ""), providerRequestId);
 
-        await adminClient?.from("generations").update(updates).eq("id", row.id);
+    if (poll) {
+      const nextStatus = poll.status === "completed"
+        ? "completed"
+        : poll.status === "failed"
+          ? "failed"
+          : row.status;
 
-        return NextResponse.json({
-          id: row.id,
-          status: nextStatus,
-          videoUrl: poll.videoUrl ?? row.video_url,
-          error: nextStatus === "failed" ? "Generation failed." : null,
-          providerId: providerRequestId
-        });
+      const updates: Record<string, unknown> = { status: nextStatus };
+      if (poll.videoUrl) updates.video_url = poll.videoUrl;
+      if (nextStatus === "completed" && !row.completed_at) updates.completed_at = new Date().toISOString();
+      if (nextStatus === "failed") updates.error_message = "Generation failed at provider.";
+
+      const { error: updateError } = await adminClient
+        .from("generations")
+        .update(updates)
+        .eq("id", row.id);
+      if (updateError) {
+        return NextResponse.json({ error: "Unable to save generation status." }, { status: 500 });
       }
-    }
 
-    return NextResponse.json({
-      id: row.id,
-      status: row.status,
-      videoUrl: row.video_url,
-      error: row.error_message,
-      providerId: row.provider_request_id
-    });
+      return NextResponse.json({
+        id: row.id,
+        status: nextStatus,
+        videoUrl: poll.videoUrl ?? row.video_url,
+        error: nextStatus === "failed" ? "Generation failed." : null,
+        providerId: providerRequestId
+      });
+    }
   }
 
   return NextResponse.json({
-    id,
-    status: "completed",
-    videoUrl: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-    providerId: "demo-provider-id"
+    id: row.id,
+    status: row.status,
+    videoUrl: row.video_url,
+    error: row.error_message,
+    providerId: row.provider_request_id
   });
 }
