@@ -39,7 +39,7 @@ export default async function Home() {
           <h1 className="text-4xl sm:text-6xl font-black leading-tight">Turn your ideas into <span className="text-violet-400">moving pictures.</span></h1>
           <p className="text-slate-400 mt-5 text-lg">Create cinematic clips, animated scenes and social videos with leading AI video models.</p>
         </div>
-        <div className="mt-10"><Studio signedIn={!!user} credits={profile?.credits ?? 0} plan={profile?.plan ?? "free"} /></div>
+        <div className="mt-10"><Studio signedIn={!!user} credits={profile?.credits ?? 0} plan={profile?.plan ?? "free"} isAdmin={isAdminEmail(user?.email)} /></div>
       </section>
 
       <section id="pricing" className="max-w-7xl mx-auto px-5 py-16">
