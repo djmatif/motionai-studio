@@ -12,12 +12,14 @@
     "@fal-ai/client": "^1.6.2",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.0",
+    "@tailwindcss/postcss": "^4.1.13",
     "@vercel/analytics": "^1.0.0",
     "@vercel/connect": "^1.0.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "stripe": "^18.5.0",
+    "tailwindcss": "^4.1.13",
     "zod": "^4.1.5"
   },
   "devDependencies": {
