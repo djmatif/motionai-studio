@@ -21,8 +21,8 @@ export const VIDEO_MODELS = {
 export type ModelTier = keyof typeof VIDEO_MODELS;
 
 export function buildModelInput(model: ModelTier, prompt: string, ratio: string, seconds: number) {
-  // Model schemas differ. Start with the universally supported prompt field;
-  // extend each adapter only after validating its endpoint's current schema.
-  // This prevents one provider's options from breaking another provider.
+  if (model === "balanced") {
+    return { prompt, duration: String(seconds), aspect_ratio: ratio, generate_audio: true };
+  }
   return { prompt };
 }
