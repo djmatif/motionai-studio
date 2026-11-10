@@ -6,9 +6,12 @@ create table if not exists public.profiles (
   email text,
   plan text not null default 'free' check (plan in ('free','pro','studio')),
   credits integer not null default 30 check (credits >= 0),
+  stripe_customer_id text,
   stripe_subscription_id text,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists stripe_customer_id text;
 
 create table if not exists public.generations (
   id uuid primary key default gen_random_uuid(),
@@ -30,8 +33,10 @@ create table if not exists public.generations (
 alter table public.profiles enable row level security;
 alter table public.generations enable row level security;
 
-create policy "read own profile" on public.profiles for select using (auth.uid() = id);
-create policy "read own generations" on public.generations for select using (auth.uid() = user_id);
+drop policy if exists "read own profile" on public.profiles;
+create policy "read own profile" on public.profiles for select to authenticated using ((select auth.uid()) = id);
+drop policy if exists "read own generations" on public.generations;
+create policy "read own generations" on public.generations for select to authenticated using ((select auth.uid()) = user_id);
 
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
@@ -48,7 +53,6 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
--- Atomic credit reservation prevents simultaneous requests from overspending.
 create or replace function public.reserve_generation_credits(p_user_id uuid, p_credits integer)
 returns boolean language plpgsql security definer set search_path = public
 as $$
@@ -72,6 +76,3 @@ revoke all on function public.refund_generation_credits(uuid,integer) from publi
 grant execute on function public.reserve_generation_credits(uuid,integer) to authenticated;
 revoke all on function public.refund_generation_credits(uuid,integer) from authenticated;
 grant execute on function public.refund_generation_credits(uuid,integer) to service_role;
-
--- Note: for production, move refunds to a service-role-only function and add
--- idempotency keys + webhook reconciliation to prevent duplicate refunds.
