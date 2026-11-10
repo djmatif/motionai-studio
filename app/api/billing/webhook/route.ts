@@ -48,9 +48,13 @@ export async function POST(request: Request) {
 
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id;
+        const parent = invoice.parent;
+        const subscriptionRef = parent?.type === "subscription_details"
+          ? parent.subscription_details?.subscription
+          : null;
+        const subscriptionId = typeof subscriptionRef === "string"
+          ? subscriptionRef
+          : subscriptionRef?.id;
         if (!subscriptionId) break;
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
