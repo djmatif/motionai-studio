@@ -10,16 +10,18 @@ export default async function AdminPage() {
   if (!user) redirect("/login?next=/admin");
   if (!isAdminEmail(user.email)) redirect("/");
 
-  const [summaryResult, usersResult, generationsResult] = await Promise.all([
+  const [summaryResult, usersResult, generationsResult, longVideosResult] = await Promise.all([
     auth.rpc("motionai_admin_summary"),
     auth.rpc("motionai_admin_list_users"),
-    auth.rpc("motionai_admin_recent_generations")
+    auth.rpc("motionai_admin_recent_generations"),
+    auth.rpc("motionai_admin_recent_long_videos")
   ]);
 
   const summary = summaryResult.data ?? {};
   const users = usersResult.data ?? [];
   const generations = generationsResult.data ?? [];
-  const error = summaryResult.error || usersResult.error || generationsResult.error;
+  const longVideos = longVideosResult.data ?? [];
+  const error = summaryResult.error || usersResult.error || generationsResult.error || longVideosResult.error;
 
   return <main className="min-h-screen max-w-7xl mx-auto p-6 sm:p-10">
     <header className="flex flex-wrap justify-between gap-4 items-center border-b border-white/10 pb-6">
@@ -35,7 +37,7 @@ export default async function AdminPage() {
           ["Completed videos", summary.completed ?? 0]
         ].map(([label,value]) => <div key={String(label)} className="rounded-2xl bg-white/[.04] border border-white/10 p-6"><p className="text-slate-400 text-sm">{label}</p><p className="text-3xl font-bold mt-2">{value}</p></div>)}
       </section>
-      <AdminControls users={users} generations={generations} />
+      <AdminControls users={users} generations={generations} longVideos={longVideos} />
     </>}
     <p className="text-xs text-slate-500 mt-8">Admin actions are verified in PostgreSQL against the signed-in email. Never share your admin password or Supabase secret keys.</p>
   </main>;
