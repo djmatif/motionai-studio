@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 
 export async function POST(request: Request) {
@@ -14,17 +15,26 @@ export async function POST(request: Request) {
   const price = plan === "studio"
     ? process.env.STRIPE_PRICE_STUDIO_MONTHLY
     : process.env.STRIPE_PRICE_PRO_MONTHLY;
-
   if (!price) return NextResponse.json({ error: "Stripe price ID is missing." }, { status: 503 });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+  const db = createAdminClient();
+  let customerId: string | undefined;
+  if (db) {
+    const { data: profile } = await db.from("profiles").select("stripe_customer_id").eq("id", user.id).maybeSingle();
+    customerId = profile?.stripe_customer_id ?? undefined;
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price, quantity: 1 }],
-    customer_email: user.email ?? undefined,
+    ...(customerId ? { customer: customerId } : { customer_email: user.email ?? undefined }),
     client_reference_id: user.id,
     metadata: { user_id: user.id, plan },
     subscription_data: { metadata: { user_id: user.id, plan } },
+    billing_address_collection: "required",
+    tax_id_collection: { enabled: true },
+    automatic_tax: { enabled: true },
     success_url: `${appUrl}/?billing=success`,
     cancel_url: `${appUrl}/?billing=cancelled`
   });
