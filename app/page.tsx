@@ -48,8 +48,8 @@ export default async function Home() {
         <div className="grid md:grid-cols-3 gap-4 mt-7">
           {[
             ["Free", "$0", "30 starter credits", "Try the studio"],
-            ["Pro", "$19 / month", "500 credits / month", "For regular creators"],
-            ["Studio", "$49 / month", "2,000 credits / month", "For high-volume creators"]
+            ["Pro", "KSh 100 / month", "500 credits / month", "For regular creators"],
+            ["Studio", "KSh 50 / month", "2,000 credits / month", "For high-volume creators"]
           ].map((p, i) => (
             <div key={p[0]} className={`rounded-2xl border p-6 ${i === 1 ? "border-violet-400 bg-violet-500/10" : "border-white/10 bg-white/[.03]"}`}>
               <div className="text-lg font-bold">{p[0]}</div>
@@ -66,7 +66,7 @@ export default async function Home() {
             </div>
           ))}
         </div>
-        <p className="text-xs text-slate-500 mt-4">Illustrative launch pricing. Configure matching Stripe prices before accepting payments.</p>
+        <p className="text-xs text-slate-500 mt-4">Monthly subscriptions billed in Kenyan shillings (KES).</p>
       </section>
 
       <footer className="border-t border-white/10 px-5 py-8 text-center text-xs text-slate-500">© {new Date().getFullYear()} MotionAI Studio. AI-generated content should be reviewed before publication.</footer>
