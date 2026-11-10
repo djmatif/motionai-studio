@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-type Props = { signedIn: boolean; credits: number; plan: string };
+type Props = { signedIn: boolean; credits: number; plan: string; isAdmin?: boolean };
 
-export function Studio({ signedIn, credits, plan }: Props) {
+export function Studio({ signedIn, credits, plan, isAdmin = false }: Props) {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<"text" | "image">("text");
   const [tier, setTier] = useState("balanced");
@@ -45,6 +45,36 @@ export function Studio({ signedIn, credits, plan }: Props) {
         const uploadData = await upload.json();
         if (!upload.ok) throw new Error(uploadData.error || "Image upload failed.");
         uploadedImageUrl = uploadData.url;
+      }
+
+      if (isAdmin && seconds === 60) {
+        setMessage("Preparing your 60-second video as four 15-second scenes…");
+        const response = await fetch("/api/admin/long-videos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: style + " style. " + prompt, aspectRatio: ratio })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not start the long video.");
+        setGenerationId(data.id);
+        setMessage("Your 60-second video is rendering in four scenes. This may take several minutes.");
+        let ready = false;
+        for (let i = 0; i < 180; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          const poll = await fetch("/api/admin/long-videos/" + data.id);
+          const result = await poll.json();
+          if (!poll.ok) throw new Error(result.error || "Could not check the long video.");
+          if (result.status === "completed" && result.videoUrl) {
+            setVideoUrl(result.videoUrl);
+            setMessage("Your 60-second video is ready.");
+            ready = true;
+            break;
+          }
+          if (result.status === "failed") throw new Error(result.error || "The long video could not be completed.");
+          setMessage(result.status === "merging" ? "All scenes are ready. Combining them into one 60-second MP4…" : "Rendering your four 15-second scenes…");
+        }
+        if (!ready) setMessage("Your video is still processing. Your job is saved; return later and check its status in the admin database.");
+        return;
       }
 
       setMessage("Submitting your video…");
@@ -99,7 +129,7 @@ export function Studio({ signedIn, credits, plan }: Props) {
       <div className="rounded-3xl border border-white/10 bg-[#111525] p-5 sm:p-7 shadow-2xl shadow-black/20">
         <div className="flex justify-between items-center gap-3 mb-5">
           <h2 className="text-xl font-bold">Create a video</h2>
-          <span className="text-xs rounded-full bg-violet-500/15 text-violet-200 px-3 py-1">{plan.toUpperCase()} · {credits} credits</span>
+          <span className="text-xs rounded-full bg-violet-500/15 text-violet-200 px-3 py-1">{isAdmin ? "ADMIN · UNLIMITED" : `${plan.toUpperCase()} · ${credits} credits`}</span>
         </div>
 
         <div className="flex gap-2 mb-5">
@@ -163,6 +193,7 @@ export function Studio({ signedIn, credits, plan }: Props) {
               <option value={8}>8 seconds</option>
               <option value={10}>10 seconds</option>
               <option value={15}>15 seconds</option>
+              {isAdmin && <option value={60}>60 seconds · Admin (4 scenes)</option>}
             </select>
           </label>
 
@@ -211,6 +242,7 @@ export function Studio({ signedIn, credits, plan }: Props) {
             <li>Include camera movement and lighting.</li>
             <li>Specify the mood, setting and visual style.</li>
             <li>Keep each clip focused on one clear scene.</li>
+            {isAdmin && <li>Admin 60-second videos are rendered as four 15-second scenes and merged into one MP4.</li>}
           </ul>
         </div>
       </aside>
