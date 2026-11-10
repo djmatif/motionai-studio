@@ -27,6 +27,7 @@ export async function POST(request: Request) {
 
   try {
     const requests: string[] = [];
+    const modelIds: string[] = [];
     for (let index = 0; index < CLIP_COUNT; index++) {
       const segmentPrompt = prompt + " Create scene " + (index + 1) + " of 4 for a continuous one-minute film. This is a 15-second segment. " +
         (index === 0 ? "Establish the opening scene and visual style." :
@@ -37,10 +38,11 @@ export async function POST(request: Request) {
         ...(index === 0 && imageUrl ? { imageUrl } : {})
       });
       requests.push(submitted.requestId);
+      modelIds.push(submitted.modelId);
     }
 
     const { error: updateError } = await supabase.from("admin_long_videos").update({
-      clip_request_ids: requests, clip_model_id: "fal-ai/kling-video/v3/standard/text-to-video",
+      clip_request_ids: requests, clip_model_ids: modelIds, clip_model_id: "fal-ai/kling-video/v3/standard/text-to-video",
       status: "generating", updated_at: new Date().toISOString()
     }).eq("id", job.id);
     if (updateError) throw updateError;
