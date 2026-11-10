@@ -31,11 +31,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Upload your reference image again before generating." }, { status: 400 });
   }
 
-  const profile = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
-  if (profile.error) return NextResponse.json({ error: "Unable to load your profile." }, { status: 500 });
-  if (!profile.data) {
-    const { error } = await supabase.from("profiles").insert({ id: user.id, email: user.email, plan: "free", credits: 30 });
-    if (error && error.code !== "23505") return NextResponse.json({ error: "Unable to initialize your profile." }, { status: 500 });
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles").select("id").eq("id", user.id).maybeSingle();
+  if (profileError || !profile) {
+    return NextResponse.json({ error: "Your account profile is not initialized. Sign out and sign in again, then retry." }, { status: 503 });
   }
 
   const generationId = crypto.randomUUID();
