@@ -8,7 +8,7 @@ export default async function Home() {
   const { data: { user } } = await supabase.auth.getUser();
   let profile: any = null;
   if (user) {
-    const { data } = await supabase.from("profiles").select("plan, credits").eq("id", user.id).single();
+    const { data } = await supabase.from("profiles").select("plan, credits, stripe_customer_id").eq("id", user.id).single();
     profile = data;
   }
 
@@ -21,6 +21,7 @@ export default async function Home() {
           {user ? (
             <>
               <span className="hidden sm:inline">{user.email}</span>
+              {profile?.stripe_customer_id && <form action="/api/billing/portal" method="post"><button className="rounded-lg border border-white/15 px-3 py-2">Manage billing</button></form>}
               {isAdminEmail(user.email) && <Link href="/admin" className="text-violet-300">Admin</Link>}
               <form action="/auth/signout" method="post">
                 <button className="rounded-lg border border-white/15 px-3 py-2">Sign out</button>
@@ -65,7 +66,7 @@ export default async function Home() {
             </div>
           ))}
         </div>
-        <p className="text-xs text-slate-500 mt-4">Illustrative launch pricing. Configure matching Stripe prices and validate AI provider costs before accepting payments.</p>
+        <p className="text-xs text-slate-500 mt-4">Illustrative launch pricing. Configure matching Stripe prices before accepting payments.</p>
       </section>
 
       <footer className="border-t border-white/10 px-5 py-8 text-center text-xs text-slate-500">© {new Date().getFullYear()} MotionAI Studio. AI-generated content should be reviewed before publication.</footer>
