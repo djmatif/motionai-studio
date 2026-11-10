@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 
 export async function POST(request: Request) {
@@ -17,13 +16,10 @@ export async function POST(request: Request) {
     : process.env.STRIPE_PRICE_PRO_MONTHLY;
   if (!price) return NextResponse.json({ error: "Stripe price ID is missing." }, { status: 503 });
 
+  const { data: profile } = await supabase.from("profiles")
+    .select("stripe_customer_id").eq("id", user.id).maybeSingle();
+  const customerId = profile?.stripe_customer_id ?? undefined;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-  const db = createAdminClient();
-  let customerId: string | undefined;
-  if (db) {
-    const { data: profile } = await db.from("profiles").select("stripe_customer_id").eq("id", user.id).maybeSingle();
-    customerId = profile?.stripe_customer_id ?? undefined;
-  }
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -34,7 +30,7 @@ export async function POST(request: Request) {
     subscription_data: { metadata: { user_id: user.id, plan } },
     billing_address_collection: "required",
     tax_id_collection: { enabled: true },
-    automatic_tax: { enabled: true },
+    ...(process.env.STRIPE_TAX_ENABLED === "true" ? { automatic_tax: { enabled: true } } : {}),
     success_url: `${appUrl}/?billing=success`,
     cancel_url: `${appUrl}/?billing=cancelled`
   });
