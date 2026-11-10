@@ -11,6 +11,14 @@ export default async function AdminPage() {
   if (!isAdminEmail(user.email)) redirect("/");
 
   const db = createAdminClient();
+  if (!db) {
+    return <main className="min-h-screen max-w-3xl mx-auto p-8">
+      <h1 className="text-3xl font-black">Admin dashboard</h1>
+      <p className="mt-4 text-slate-300">Database administration is not configured yet. Add the Supabase service-role key privately in Vercel to enable admin statistics.</p>
+      <Link href="/" className="inline-block mt-6 underline">Back to studio</Link>
+    </main>;
+  }
+
   const [{ count: users }, { count: generations }, { data: latest }] = await Promise.all([
     db.from("profiles").select("id", { count: "exact", head: true }),
     db.from("generations").select("id", { count: "exact", head: true }),
