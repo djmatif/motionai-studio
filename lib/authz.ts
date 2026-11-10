@@ -1,7 +1,6 @@
-/** Admin identity is an email allow-list held in server environment variables.
- * Password verification is handled by Supabase Auth; never hardcode passwords.
- */
+/** Admin access is restricted to one verified Supabase Auth email identity. */
+const ADMIN_EMAIL = "djmatife@gmail.com";
+
 export function isAdminEmail(email?: string | null) {
-  const configured = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  return Boolean(configured && email && email.trim().toLowerCase() === configured);
+  return Boolean(email && email.trim().toLowerCase() === ADMIN_EMAIL);
 }
