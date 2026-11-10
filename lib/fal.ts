@@ -36,12 +36,14 @@ export async function submitGenerationToFal({
   prompt,
   modelKey,
   aspectRatio,
-  duration
+  duration,
+  imageUrl
 }: {
   prompt: string;
   modelKey: string;
   aspectRatio: string;
   duration: number;
+  imageUrl?: string;
 }) {
   const model = VIDEO_MODELS[modelKey as keyof typeof VIDEO_MODELS] ?? VIDEO_MODELS.balanced;
 
@@ -49,8 +51,12 @@ export async function submitGenerationToFal({
     throw new Error("FAL_KEY is not configured.");
   }
 
-  const input = buildModelInput(modelKey as keyof typeof VIDEO_MODELS, prompt, aspectRatio, duration);
-  const response = await fal.queue.submit(model.id, { input });
+  const imageModelId = "fal-ai/kling-video/v3/standard/image-to-video";
+  const modelId = imageUrl ? imageModelId : model.id;
+  const input = imageUrl
+    ? { prompt, start_image_url: imageUrl, duration: String(duration), generate_audio: true }
+    : buildModelInput(modelKey as keyof typeof VIDEO_MODELS, prompt, aspectRatio, duration);
+  const response = await fal.queue.submit(modelId, { input });
 
   const requestId =
     (response as any)?.requestId ??
@@ -59,7 +65,7 @@ export async function submitGenerationToFal({
     (response as any)?.data?.requestId ??
     "";
 
-  return { requestId, modelId: model.id, raw: response };
+  return { requestId, modelId, raw: response };
 }
 
 export async function pollFalStatus(modelId: string, requestId: string) {
